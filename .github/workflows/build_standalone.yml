@@ -1,0 +1,231 @@
+name: Build WDA Standalone App (no xctest host required)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 50
+
+    steps:
+      - name: Checkout WebDriverAgent v5.15.3
+        uses: actions/checkout@v4
+        with:
+          repository: appium/WebDriverAgent
+          ref: v5.15.3
+
+      - name: Select Xcode 15.4
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Resolve SPM dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project WebDriverAgent.xcodeproj \
+            -scheme WebDriverAgentRunner
+
+      - name: Build WebDriverAgentLib framework
+        timeout-minutes: 20
+        run: |
+          xcodebuild build \
+            -project WebDriverAgent.xcodeproj \
+            -scheme WebDriverAgentLib \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            -derivedDataPath ./build_lib
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Scaffold standalone app sources
+        run: |
+          mkdir -p WDAStandalone/Sources
+          LIB=./build_lib/Build/Products/Debug-iphoneos/WebDriverAgentLib.framework
+
+          # --- AppDelegate.m ---
+          cat > WDAStandalone/Sources/AppDelegate.m << 'OBJC'
+          #import <UIKit/UIKit.h>
+
+          // Runtime access to WebDriverAgentLib without needing public headers
+          @interface FBWebServer : NSObject
+          + (void)startServing;
+          @end
+
+          @interface AppDelegate : UIResponder <UIApplicationDelegate>
+          @property (strong, nonatomic) UIWindow *window;
+          @end
+
+          @implementation AppDelegate
+
+          - (BOOL)application:(UIApplication *)application
+              didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+
+            self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+            UIViewController *vc  = [[UIViewController alloc] init];
+            vc.view.backgroundColor = [UIColor colorWithRed:0.05 green:0.10 blue:0.15 alpha:1];
+
+            UILabel *title = [[UILabel alloc] init];
+            title.text      = @"WDA Server";
+            title.textColor = [UIColor whiteColor];
+            title.font      = [UIFont boldSystemFontOfSize:28];
+            title.translatesAutoresizingMaskIntoConstraints = NO;
+            [vc.view addSubview:title];
+
+            UILabel *status = [[UILabel alloc] init];
+            status.text      = @"Starting on :8100…";
+            status.textColor = [UIColor colorWithRed:0.4 green:0.9 blue:0.5 alpha:1];
+            status.font      = [UIFont monospacedSystemFontOfSize:14 weight:UIFontWeightRegular];
+            status.translatesAutoresizingMaskIntoConstraints = NO;
+            [vc.view addSubview:status];
+
+            [NSLayoutConstraint activateConstraints:@[
+              [title.centerXAnchor constraintEqualToAnchor:vc.view.centerXAnchor],
+              [title.centerYAnchor constraintEqualToAnchor:vc.view.centerYAnchor constant:-20],
+              [status.centerXAnchor constraintEqualToAnchor:vc.view.centerXAnchor],
+              [status.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:10],
+            ]];
+
+            self.window.rootViewController = vc;
+            [self.window makeKeyAndVisible];
+
+            // Prevent screen dim while app is foreground
+            [UIApplication sharedApplication].idleTimerDisabled = YES;
+
+            // Start WDA HTTP server on port 8100
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+              NSLog(@"[WDA] Starting HTTP server on :8100");
+              [FBWebServer startServing];
+            });
+
+            // Update status label once server has had time to bind
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC),
+                           dispatch_get_main_queue(), ^{
+              status.text = @"Ready  ·  :8100";
+            });
+
+            return YES;
+          }
+
+          @end
+          OBJC
+
+          # --- main.m ---
+          cat > WDAStandalone/Sources/main.m << 'OBJC'
+          #import <UIKit/UIKit.h>
+          #import "AppDelegate.m"
+
+          int main(int argc, char * argv[]) {
+            @autoreleasepool {
+              return UIApplicationMain(argc, argv, nil,
+                                       NSStringFromClass([AppDelegate class]));
+            }
+          }
+          OBJC
+
+          # --- Info.plist ---
+          cat > WDAStandalone/Info.plist << 'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+            "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleIdentifier</key>
+            <string>com.facebook.WebDriverAgent.standalone</string>
+            <key>CFBundleName</key>
+            <string>WDA Server</string>
+            <key>CFBundleDisplayName</key>
+            <string>WDA Server</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1.0</string>
+            <key>CFBundleVersion</key>
+            <string>1</string>
+            <key>LSRequiresIPhoneOS</key>
+            <true/>
+            <key>UILaunchScreen</key>
+            <dict/>
+            <key>UIApplicationSceneManifest</key>
+            <dict>
+              <key>UIApplicationSupportsMultipleScenes</key>
+              <false/>
+            </dict>
+          </dict></plist>
+          PLIST
+
+          # --- xcodegen project.yml ---
+          FW_PATH=$(realpath $LIB)
+          cat > WDAStandalone/project.yml << YAML
+          name: WDAStandalone
+          options:
+            deploymentTarget:
+              iOS: "11.0"
+          settings:
+            base:
+              SDKROOT: iphoneos
+              TARGETED_DEVICE_FAMILY: "1"
+              CODE_SIGNING_ALLOWED: NO
+              CODE_SIGNING_REQUIRED: NO
+              CODE_SIGN_IDENTITY: ""
+              FRAMEWORK_SEARCH_PATHS: "\$(inherited) ${FW_PATH%/*}"
+              OTHER_LDFLAGS: "-framework WebDriverAgentLib -framework XCTest"
+              LD_RUNPATH_SEARCH_PATHS: "\$(inherited) @executable_path/Frameworks"
+          targets:
+            WDAStandalone:
+              type: application
+              platform: iOS
+              deploymentTarget: "11.0"
+              sources:
+                - Sources
+              info:
+                path: Info.plist
+              settings:
+                PRODUCT_BUNDLE_IDENTIFIER: com.facebook.WebDriverAgent.standalone
+          YAML
+
+      - name: Generate Xcode project
+        working-directory: WDAStandalone
+        run: xcodegen generate
+
+      - name: Copy WebDriverAgentLib into app
+        run: |
+          mkdir -p WDAStandalone/Frameworks
+          cp -r ./build_lib/Build/Products/Debug-iphoneos/WebDriverAgentLib.framework \
+                WDAStandalone/Frameworks/
+
+      - name: Build standalone app
+        timeout-minutes: 15
+        run: |
+          xcodebuild build \
+            -project WDAStandalone/WDAStandalone.xcodeproj \
+            -scheme WDAStandalone \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            FRAMEWORK_SEARCH_PATHS="$(pwd)/WDAStandalone/Frameworks" \
+            -derivedDataPath ./build_app
+
+      - name: Ad-hoc sign nested bundles
+        run: |
+          APP=./build_app/Build/Products/Debug-iphoneos/WDAStandalone.app
+          find "$APP" -name "*.framework" | while read fw; do
+            codesign --force --sign - --timestamp=none "$fw"
+          done
+          codesign --force --sign - --timestamp=none "$APP"
+          echo "App size: $(du -sh $APP)"
+
+      - name: Package as IPA
+        run: |
+          mkdir -p Payload
+          cp -r ./build_app/Build/Products/Debug-iphoneos/WDAStandalone.app Payload/
+          zip -r WDAStandalone-iOS16.ipa Payload/
+          echo "IPA size: $(du -sh WDAStandalone-iOS16.ipa)"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WDAStandalone-iOS16
+          path: WDAStandalone-iOS16.ipa
+          retention-days: 30
