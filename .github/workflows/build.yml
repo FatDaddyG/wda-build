@@ -1,0 +1,48 @@
+name: Build WDA for iOS 16
+
+on:
+  workflow_dispatch:
+
+  jobs:
+    build:
+        runs-on: macos-13
+
+            steps:
+                  - name: Checkout WebDriverAgent v5.15.3
+                          uses: actions/checkout@v4
+                                  with:
+                                            repository: appium/WebDriverAgent
+                                                      ref: v5.15.3
+
+                                                            - name: Select Xcode 15.0
+                                                                    run: sudo xcode-select -s /Applications/Xcode_15.0.app
+
+                                                                          - name: Install dependencies
+                                                                                  run: |
+                                                                                            brew install carthage
+                                                                                                      carthage bootstrap --use-xcframeworks --platform iOS
+                                                                                                      
+                                                                                                            - name: Build WDA (unsigned, re-sign with Sideloadly)
+                                                                                                                    run: |
+                                                                                                                              xcodebuild clean build-for-testing \
+                                                                                                                                          -project WebDriverAgent.xcodeproj \
+                                                                                                                                                      -scheme WebDriverAgentRunner \
+                                                                                                                                                                  -destination 'generic/platform=iOS' \
+                                                                                                                                                                              CODE_SIGNING_ALLOWED=NO \
+                                                                                                                                                                                          CODE_SIGNING_REQUIRED=NO \
+                                                                                                                                                                                                      CODE_SIGN_IDENTITY="" \
+                                                                                                                                                                                                                  -derivedDataPath ./build
+                                                                                                                                                                                                                  
+                                                                                                                                                                                                                        - name: Package as IPA
+                                                                                                                                                                                                                                run: |
+                                                                                                                                                                                                                                          mkdir -p Payload
+                                                                                                                                                                                                                                                    cp -r ./build/Build/Products/Debug-iphoneos/WebDriverAgentRunner-Runner.app Payload/
+                                                                                                                                                                                                                                                              zip -r WebDriverAgentRunner-iOS16.ipa Payload/
+                                                                                                                                                                                                                                                                        echo "IPA size: $(du -sh WebDriverAgentRunner-iOS16.ipa)"
+                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                              - name: Upload IPA artifact
+                                                                                                                                                                                                                                                                                      uses: actions/upload-artifact@v4
+                                                                                                                                                                                                                                                                                              with:
+                                                                                                                                                                                                                                                                                                        name: WebDriverAgentRunner-iOS16
+                                                                                                                                                                                                                                                                                                                  path: WebDriverAgentRunner-iOS16.ipa
+                                                                                                                                                                                                                                                                                                                            retention-days: 7
