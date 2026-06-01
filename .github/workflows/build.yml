@@ -18,22 +18,14 @@ jobs:
       - name: Select Xcode 15.4
         run: sudo xcode-select -s /Applications/Xcode_15.4.app
 
-      - name: Install Carthage
-        run: brew install carthage
-
-      - name: Cache Carthage
-        uses: actions/cache@v4
-        with:
-          path: Carthage
-          key: carthage-ios16-${{ hashFiles('Cartfile.resolved') }}
-          restore-keys: carthage-ios16-
-
-      - name: Bootstrap dependencies
-        timeout-minutes: 20
-        run: carthage bootstrap --use-xcframeworks --platform iOS --cache-builds
+      - name: Resolve Swift Package dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project WebDriverAgent.xcodeproj \
+            -scheme WebDriverAgentRunner
 
       - name: Build WDA (unsigned)
-        timeout-minutes: 12
+        timeout-minutes: 20
         run: |
           xcodebuild clean build-for-testing \
             -project WebDriverAgent.xcodeproj \
