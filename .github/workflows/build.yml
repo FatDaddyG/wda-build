@@ -36,6 +36,23 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             -derivedDataPath ./build
 
+      - name: Ad-hoc sign nested bundles (required for Sideloadly re-signing)
+        run: |
+          APP=./build/Build/Products/Debug-iphoneos/WebDriverAgentRunner-Runner.app
+          # Sign all nested xctest bundles and their binaries so Sideloadly will re-sign them
+          find "$APP" -name "*.xctest" | while read bundle; do
+            binary="$bundle/$(basename $bundle .xctest)"
+            if [ -f "$binary" ]; then
+              codesign --force --sign - --timestamp=none "$binary"
+              echo "Ad-hoc signed: $binary"
+            fi
+            codesign --force --sign - --timestamp=none "$bundle"
+            echo "Ad-hoc signed bundle: $bundle"
+          done
+          find "$APP" -name "*.framework" | while read fw; do
+            codesign --force --sign - --timestamp=none "$fw"
+          done
+
       - name: Package as IPA
         run: |
           mkdir -p Payload
