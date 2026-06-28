@@ -4,6 +4,7 @@ import { runB8 } from './crawlers/b8.js';
 import { runB10 } from './crawlers/b10.js';
 import { query, batch } from './db.js';
 import { compositeScore, signalFlag, loadBandConfig } from './scoring.js';
+import { handleMCP } from './mcp.js';
 
 export default {
   async scheduled(event, env, ctx) {
@@ -31,6 +32,9 @@ export default {
         const body = await request.json().catch(() => ({}));
         ctx.waitUntil(runCrawler(body.band || 'all', env));
         return Response.json({ ok: true, band: body.band || 'all', queued: true });
+
+      case '/mcp':
+        return handleMCP(request, env);
 
       default:
         return new Response('DROPOUT Cloud', { status: 200 });
