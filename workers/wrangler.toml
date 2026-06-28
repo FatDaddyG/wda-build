@@ -1,0 +1,21 @@
+name = "dropout-cloud"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+crons = [
+  "30 13 * * 1-5",  # 9:30 AM EDT — market open: B1, B6, B8
+  "0 16 * * 1-5",   # 12:00 PM EDT — midday: B10
+  "15 20 * * 1-5",  # 4:15 PM EDT — close: full rescore → signal_scores
+  "0 21 * * 1-5",   # 5:00 PM EDT — EOD: position sync
+]
+
+[vars]
+TURSO_URL = "https://dropout-fatdaddyg.aws-us-east-1.turso.io"
+
+# Secrets — set via: wrangler secret put <NAME>
+#   TURSO_TOKEN        Turso JWT token
+#   PUBLIC_COM_TOKEN   Public.com API bearer token
+#   DISCORD_TOKEN      Captured Discord auth token (Bot or user token)
+#   STOCKTWITS_TOKEN   StockTwits __ssid session cookie value
