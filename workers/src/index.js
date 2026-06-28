@@ -110,27 +110,38 @@ async function runFullRescore(env) {
 }
 
 // ── EOD position sync ──────────────────────────────────────────────────────────
+// Public.com API: get_portfolio only supports non-IRA (BROKERAGE) accounts.
+// IRA equity positions are synced via the Mac EOD job → DropOut DB.
+// This job syncs the brokerage account (crypto) to Turso.
 
 async function syncPositions(env) {
-  const resp = await fetch('https://trade-service.public.com/portfolio', {
-    headers: {
-      Authorization: `Bearer ${env.PUBLIC_COM_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-  });
+  const BROKERAGE_ID = '5OR89258';
+  const resp = await fetch(
+    `https://trade-service.public.com/brokerage/account/${BROKERAGE_ID}/portfolio`,
+    {
+      headers: { Authorization: `Bearer ${env.PUBLIC_COM_TOKEN}` },
+    }
+  );
 
   if (!resp.ok) return { positions: 'failed', status: resp.status };
 
   const data = await resp.json();
-  const positions = data.equityPositions || data.positions || [];
+  const positions = data.positions || [];
   const now = new Date().toISOString();
 
   const writes = positions
-    .filter(p => p.symbol)
+    .filter(p => p.instrument?.symbol)
     .map(p => [
       `INSERT OR REPLACE INTO positions (ticker, account_id, shares, avg_cost, market_value, platform, updated_at)
-       VALUES (?, '5OC17568', ?, ?, ?, 'public', ?)`,
-      [p.symbol, p.quantity ?? p.shares, p.averageCost ?? p.avgCost, p.marketValue ?? p.value, now],
+       VALUES (?, ?, ?, ?, ?, 'public', ?)`,
+      [
+        p.instrument.symbol,
+        BROKERAGE_ID,
+        parseFloat(p.quantity),
+        parseFloat(p.costBasis?.unitCost ?? 0),
+        parseFloat(p.currentValue ?? 0),
+        now,
+      ],
     ]);
 
   if (writes.length > 0) await batch(env, writes);
