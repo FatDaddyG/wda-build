@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>DropOut</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #06070B; --s1: #0D0F18; --s2: #161822; --s3: #1E202C;
+  --border: rgba(255,255,255,0.07);
+  --text: #E8E8F0; --muted: #8A8A9A; --dim: rgba(255,255,255,0.28);
+  --copper: #C2613C; --green: #3DD68C; --amber: #FFB932; --red: #FF5C5C; --grey: #6B7280;
+  --blue: #3b82f6; --pink: #ec4899;
+  --fb: 'Hanken Grotesk', system-ui, sans-serif;
+  --fm: 'JetBrains Mono', ui-monospace, monospace;
+  --fd: 'Space Grotesk', system-ui, sans-serif;
+}
+html, body { height: 100%; background: var(--bg); font-family: var(--fb); color: var(--text); -webkit-font-smoothing: antialiased; }
+.layout { display: flex; flex-direction: column; height: 100svh; }
+
+/* ── CHART SECTION ─────────────────────────────────────────── */
+.chart-section { flex: 0 0 auto; background: var(--s1); border-bottom: 1px solid var(--border); padding: 14px 16px 12px; }
+.chart-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.chart-title { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; }
+.chart-fresh { font-size: 10px; font-family: var(--fm); color: var(--muted); }
+.chart-refresh { margin-left: auto; background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-size: 11px; cursor: pointer; padding: 3px 9px; font-family: var(--fb); transition: all 0.15s; }
+.chart-refresh:hover { color: var(--copper); border-color: rgba(194,97,60,0.4); }
+
+.pv-hero { margin-bottom: 8px; }
+.pv-value-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 3px; }
+.pv-value { font-family: var(--fd); font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+.pv-value .cents { font-size: 18px; opacity: 0.7; }
+.pv-delta { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 4px; }
+.pv-delta.up { color: var(--green); }
+.pv-delta.down { color: var(--red); }
+.pv-delta.flat { color: var(--muted); }
+.pv-delta-label { font-size: 10px; color: var(--dim); font-family: var(--fm); margin-top: 1px; }
+
+.pv-ranges { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+.pv-range { background: none; border: none; color: var(--muted); font-size: 11px; font-family: var(--fm); cursor: pointer; padding: 3px 7px; border-radius: 5px; transition: all 0.15s; }
+.pv-range:hover { color: var(--text); background: var(--s3); }
+.pv-range.active { color: var(--copper); background: rgba(194,97,60,0.12); }
+
+.pv-chart-wrap { position: relative; }
+.pv-chart-wrap svg { width: 100%; height: 120px; display: block; }
+.pv-overlay { position: absolute; inset: 0; pointer-events: none; }
+.pv-tooltip { position: absolute; top: 6px; right: 0; background: var(--s3); border: 1px solid var(--border); border-radius: 6px; padding: 5px 9px; font-size: 11px; font-family: var(--fm); pointer-events: none; display: none; z-index: 10; }
+.pv-crosshair { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.2); pointer-events: none; display: none; }
+
+.pv-tiles { display: flex; gap: 8px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.pv-tiles::-webkit-scrollbar { display: none; }
+.pv-tile { flex-shrink: 0; background: var(--s2); border-radius: 8px; padding: 6px 10px; font-size: 11px; font-family: var(--fm); border: 1px solid var(--border); }
+.pv-tile-label { color: var(--muted); font-size: 10px; margin-bottom: 2px; }
+.pv-tile-val { font-weight: 500; }
+
+.chart-empty { text-align: center; padding: 24px 0 8px; font-size: 12px; color: var(--muted); font-family: var(--fm); }
+
+/* ── CHAT SECTION ──────────────────────────────────────────── */
+.chat-section { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.chat-hdr { flex-shrink: 0; background: var(--s1); border-bottom: 1px solid var(--border); padding: 8px 14px; display: flex; align-items: center; gap: 8px; }
+.chat-av { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid rgba(194,97,60,0.4); overflow: hidden; flex-shrink: 0; }
+.chat-av img { width: 100%; height: 100%; object-fit: cover; object-position: 24% 12%; }
+.chat-name { font-size: 13px; font-weight: 600; }
+.chat-sub { font-size: 10px; color: var(--muted); font-family: var(--fm); }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 5px rgba(61,214,140,0.6); animation: pulse 3s ease-in-out infinite; margin-left: auto; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+.msgs { flex: 1; overflow-y: auto; padding: 8px 12px 6px; display: flex; flex-direction: column; gap: 1px; scrollbar-width: none; }
+.msgs::-webkit-scrollbar { display: none; }
+.date-stamp { align-self: center; font-size: 10px; color: var(--dim); padding: 10px 0 5px; text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--fm); }
+.msg-row { display: flex; align-items: flex-end; gap: 6px; margin-bottom: 1px; }
+.msg-row.from-user { flex-direction: row-reverse; }
+.mini-av { width: 22px; height: 22px; border-radius: 50%; overflow: hidden; flex-shrink: 0; border: 1px solid rgba(194,97,60,0.2); }
+.mini-av img { width: 100%; height: 100%; object-fit: cover; object-position: 24% 12%; }
+.mini-av.hidden { visibility: hidden; }
+.bubble { max-width: 78%; padding: 8px 12px; border-radius: 16px; font-size: 14px; line-height: 1.55; word-break: break-word; }
+.from-franky .bubble { background: var(--s2); color: var(--text); border-bottom-left-radius: 4px; border-left: 2px solid var(--copper); padding-left: 10px; }
+.from-user .bubble { background: rgba(194,97,60,0.15); border: 1px solid rgba(194,97,60,0.25); color: var(--text); border-bottom-right-radius: 4px; }
+.msg-ts { font-size: 10px; color: var(--dim); padding: 2px 4px 3px; font-variant-numeric: tabular-nums; font-family: var(--fm); }
+.from-user .msg-ts { text-align: right; }
+.latency { color: var(--amber); opacity: 0.75; }
+.code-block { font-family: var(--fm); font-size: 11px; background: rgba(0,0,0,0.4); border-left: 2px solid var(--amber); border-radius: 6px; padding: 7px 10px; margin-top: 6px; overflow-x: auto; white-space: pre; color: rgba(255,255,255,0.8); }
+
+.typing-row { display: flex; align-items: flex-end; gap: 6px; padding: 3px 0; }
+.typing-bubble { background: var(--s2); border-left: 2px solid var(--copper); border-radius: 16px; border-bottom-left-radius: 4px; padding: 9px 14px; display: flex; gap: 6px; align-items: center; }
+.typing-dots { display: flex; gap: 4px; align-items: center; }
+.typing-dots span { width: 6px; height: 6px; background: var(--muted); border-radius: 50%; animation: bounce 1.4s ease-in-out infinite; }
+.typing-dots span:nth-child(2) { animation-delay: .2s; }
+.typing-dots span:nth-child(3) { animation-delay: .4s; }
+@keyframes bounce { 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-5px);opacity:1} }
+
+.quick-chips { flex-shrink: 0; display: flex; gap: 6px; padding: 6px 12px 4px; overflow-x: auto; scrollbar-width: none; background: var(--bg); }
+.quick-chips::-webkit-scrollbar { display: none; }
+.quick-chip { flex-shrink: 0; background: var(--s2); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 12px; color: var(--copper); cursor: pointer; white-space: nowrap; transition: background 0.15s, border-color 0.15s; font-weight: 500; }
+.quick-chip:hover { background: var(--s3); border-color: rgba(194,97,60,0.3); }
+
+.input-bar { flex-shrink: 0; padding: 7px 12px max(16px, env(safe-area-inset-bottom)); background: var(--s1); border-top: 1px solid var(--border); display: flex; align-items: flex-end; gap: 8px; }
+.input-wrap { flex: 1; background: var(--s2); border-radius: 20px; border: 1px solid var(--border); display: flex; align-items: flex-end; padding: 7px 12px; min-height: 38px; transition: border-color 0.15s; }
+.input-wrap:focus-within { border-color: rgba(194,97,60,0.4); }
+textarea.inp { flex: 1; background: none; border: none; outline: none; font-family: var(--fb); font-size: 14px; color: var(--text); resize: none; line-height: 1.45; max-height: 110px; overflow-y: auto; scrollbar-width: none; padding: 0; }
+textarea.inp::placeholder { color: var(--muted); }
+textarea.inp::-webkit-scrollbar { display: none; }
+.send-btn { width: 32px; height: 32px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--copper); color: white; transition: opacity 0.15s, transform 0.1s; }
+.send-btn:disabled { opacity: 0.3; cursor: default; }
+.send-btn:not(:disabled):active { transform: scale(0.9); }
+.send-btn svg { width: 14px; height: 14px; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- CHART SECTION -->
+  <div class="chart-section" id="chartSection">
+    <div class="chart-head">
+      <span class="chart-title">Us vs The Market</span>
+      <span class="chart-fresh" id="chartFresh"></span>
+      <button class="chart-refresh" id="chartRefreshBtn" onclick="loadChart()">↻ Refresh</button>
+    </div>
+    <div class="pv-hero">
+      <div class="pv-value-row">
+        <span class="pv-value" id="pvValue">—</span>
+        <span class="pv-delta flat" id="pvDelta"></span>
+      </div>
+      <div class="pv-delta-label" id="pvLabel"></div>
+    </div>
+    <div class="pv-ranges" id="pvRanges">
+      <button class="pv-range" data-range="1D">1D</button>
+      <button class="pv-range" data-range="1W">1W</button>
+      <button class="pv-range" data-range="1M">1M</button>
+      <button class="pv-range" data-range="3M">3M</button>
+      <button class="pv-range" data-range="6M">6M</button>
+      <button class="pv-range active" data-range="YTD">YTD</button>
+      <button class="pv-range" data-range="1Y">1Y</button>
+      <button class="pv-range" data-range="ALL">ALL</button>
+    </div>
+    <div class="pv-chart-wrap" id="pvChartWrap">
+      <svg id="pvChart" viewBox="0 0 800 120" preserveAspectRatio="none"></svg>
+      <div class="pv-crosshair" id="pvCrosshair"></div>
+      <div class="pv-tooltip" id="pvTooltip"></div>
+    </div>
+    <div class="pv-tiles" id="pvTiles"></div>
+  </div>
+
+  <!-- CHAT SECTION -->
+  <div class="chat-section">
+    <div class="chat-hdr">
+      <div class="chat-av"><img src="https://dropoutapp.net/assets/franky-promo.png" onerror="this.style.display='none'" alt="F"></div>
+      <div>
+        <div class="chat-name">Franky</div>
+        <div class="chat-sub">KY·102 · FM 102.1 · DropOut AI</div>
+      </div>
+      <div class="status-dot"></div>
+    </div>
+
+    <div class="msgs" id="msgs">
+      <div class="date-stamp">Today</div>
+      <div class="msg-row from-franky">
+        <div class="mini-av hidden"></div>
+        <div>
+          <div class="bubble">Morning. Book's live. What do you need?</div>
+          <div class="msg-ts" id="tsWelcome"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="quick-chips" id="quickChips">
+      <div class="quick-chip" onclick="sendQuick(this)">Walk me through today</div>
+      <div class="quick-chip" onclick="sendQuick(this)">What's the alpha?</div>
+      <div class="quick-chip" onclick="sendQuick(this)">Any trims ready?</div>
+      <div class="quick-chip" onclick="sendQuick(this)">Top mover today?</div>
+      <div class="quick-chip" onclick="sendQuick(this)">What's the regime?</div>
+    </div>
+
+    <div class="input-bar">
+      <div class="input-wrap">
+        <textarea class="inp" id="inp" placeholder="Message Franky…" rows="1"
+          onkeydown="handleKey(event)" oninput="autosize(this);updateSend()"></textarea>
+      </div>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ─────────────────────────────────────────────────────────────────────
+// API is on the same origin (Worker routes handle /api/* on this domain)
+const API = '';
+
+// ── STATE ──────────────────────────────────────────────────────────────────────
+let _chatHistory = [];
+let _chartData = null;
+let _activeRange = 'YTD';
+
+// ── CHART ──────────────────────────────────────────────────────────────────────
+const VBW = 800, VBH = 120;
+const PAD = { top: 10, right: 48, bottom: 22, left: 4 };
+
+const SERIES_COLORS = {
+  port: null, // dynamic: green/red/grey based on delta
+  spy:  '#3b82f6',
+  qqq:  '#ec4899',
+};
+
+async function loadChart(range) {
+  range = range || _activeRange;
+  _activeRange = range;
+
+  // Update range button
+  document.querySelectorAll('.pv-range').forEach(b => {
+    b.classList.toggle('active', b.dataset.range === range);
+  });
+
+  document.getElementById('chartFresh').textContent = '…';
+
+  try {
+    const resp = await fetch(`${API}/api/chart?range=${range}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    _chartData = await resp.json();
+    renderChart(range, _chartData);
+    document.getElementById('chartFresh').textContent = 'live · ' + nowStr();
+  } catch(e) {
+    document.getElementById('chartFresh').textContent = 'error';
+    console.error('Chart load failed:', e);
+  }
+}
+
+function renderChart(range, data) {
+  const { portfolio, indexes, current_total, today_gain, today_pct } = data;
+  const intraday = range === '1D';
+
+  // Hero number
+  const pvVal = document.getElementById('pvValue');
+  if (current_total > 0) {
+    const parts = current_total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).split('.');
+    pvVal.innerHTML = `$${parts[0]}<span class="cents">.${parts[1]}</span>`;
+  } else {
+    pvVal.textContent = '—';
+  }
+
+  // Delta
+  const pvDelta = document.getElementById('pvDelta');
+  const pvLabel = document.getElementById('pvLabel');
+  if (Math.abs(today_gain) > 0.01) {
+    const sign = today_gain >= 0 ? '+' : '';
+    const arrow = today_gain >= 0 ? '↗' : '↘';
+    const cls = today_gain > 0 ? 'up' : 'down';
+    pvDelta.className = `pv-delta ${cls}`;
+    pvDelta.textContent = `${arrow} ${sign}$${Math.abs(today_gain).toLocaleString('en-US', {maximumFractionDigits:0})} (${sign}${today_pct.toFixed(2)}%)`;
+    pvLabel.textContent = 'today';
+  } else {
+    pvDelta.textContent = '';
+    pvLabel.textContent = '';
+  }
+
+  // Port color
+  const portColor = today_gain > 0 ? '#22c55e' : today_gain < 0 ? '#ef4444' : '#94a3b8';
+
+  // Build series
+  const spy = indexes.SPY || [];
+  const qqq = indexes.QQQ || [];
+  const port = portfolio.length > 0 ? portfolio : null;
+
+  // Filter to range
+  const startKey = startKeyFor(range);
+  const filterSeries = (arr, keyField) => {
+    const sl = arr.filter(p => (p[keyField] || '') >= startKey);
+    return sl.length >= 2 ? sl : arr.slice(-2);
+  };
+
+  const spySlice = filterSeries(spy, intraday ? 't' : 'date');
+  const qqqSlice = filterSeries(qqq, intraday ? 't' : 'date');
+  const portSlice = port ? filterSeries(port, 'date') : null;
+
+  // Compute % change normalized series
+  const normalize = (arr, valKey) => {
+    if (!arr || arr.length < 2) return [];
+    const anchor = arr[0][valKey];
+    if (!anchor) return [];
+    return arr.map(p => ({ key: p.date || p.t, pct: (p[valKey] / anchor - 1) * 100 }));
+  };
+
+  const allSeries = [
+    portSlice ? { key: 'port', pts: normalize(portSlice, 'total'), color: portColor, strokeWidth: 2 } : null,
+    { key: 'spy', pts: normalize(spySlice, 'close'), color: '#3b82f6', strokeWidth: 1.2 },
+    { key: 'qqq', pts: normalize(qqqSlice, 'close'), color: '#ec4899', strokeWidth: 1.2 },
+  ].filter(Boolean);
+
+  // Render SVG
+  const svg = document.getElementById('pvChart');
+  svg.innerHTML = '';
+
+  if (allSeries.every(s => s.pts.length < 2)) {
+    // No data yet
+    const wrap = document.getElementById('pvChartWrap');
+    wrap.innerHTML = '<div class="chart-empty">Portfolio history building up — check back after market close today.</div>';
+    document.getElementById('pvTiles').innerHTML = '';
+    return;
+  }
+
+  // Restore SVG if it was replaced
+  if (!document.getElementById('pvChart')) {
+    document.getElementById('pvChartWrap').innerHTML = `
+      <svg id="pvChart" viewBox="0 0 800 120" preserveAspectRatio="none"></svg>
+      <div class="pv-crosshair" id="pvCrosshair"></div>
+      <div class="pv-tooltip" id="pvTooltip"></div>`;
+  }
+
+  // Compute y domain across all series
+  let yMin = Infinity, yMax = -Infinity;
+  allSeries.forEach(s => {
+    s.pts.forEach(p => { if (p.pct < yMin) yMin = p.pct; if (p.pct > yMax) yMax = p.pct; });
+  });
+  if (yMin === yMax) { yMin -= 1; yMax += 1; }
+  const yPad = (yMax - yMin) * 0.1;
+  yMin -= yPad; yMax += yPad;
+
+  const xRange = allSeries.reduce((acc, s) => Math.max(acc, s.pts.length), 0) - 1;
+
+  const toX = (i, n) => PAD.left + (i / Math.max(n - 1, 1)) * (VBW - PAD.left - PAD.right);
+  const toY = pct => PAD.top + (1 - (pct - yMin) / (yMax - yMin)) * (VBH - PAD.top - PAD.bottom);
+
+  const svgEl = document.getElementById('pvChart');
+
+  // Zero line
+  const zeroY = toY(0);
+  if (zeroY >= PAD.top && zeroY <= VBH - PAD.bottom) {
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', PAD.left); line.setAttribute('x2', VBW - PAD.right);
+    line.setAttribute('y1', zeroY); line.setAttribute('y2', zeroY);
+    line.setAttribute('stroke', 'rgba(255,255,255,0.1)'); line.setAttribute('stroke-width', '0.5');
+    svgEl.appendChild(line);
+  }
+
+  // Y axis labels
+  const niceStep = range => {
+    const step = range / 5;
+    const mag = Math.pow(10, Math.floor(Math.log10(Math.max(step, 0.01))));
+    const norm = step / mag;
+    const nice = norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10;
+    return nice * mag;
+  };
+  const step = niceStep(yMax - yMin);
+  const firstTick = Math.ceil(yMin / step) * step;
+  for (let tick = firstTick; tick <= yMax + step * 0.01; tick += step) {
+    const y = toY(tick);
+    if (y < PAD.top || y > VBH - PAD.bottom + 2) continue;
+    const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    txt.setAttribute('x', VBW - PAD.right + 4); txt.setAttribute('y', y + 3);
+    txt.setAttribute('font-size', '8'); txt.setAttribute('fill', 'rgba(255,255,255,0.3)');
+    txt.setAttribute('font-family', 'monospace');
+    txt.textContent = (tick >= 0 ? '+' : '') + tick.toFixed(1) + '%';
+    svgEl.appendChild(txt);
+  }
+
+  // Series paths
+  allSeries.forEach(({ pts, color, strokeWidth }) => {
+    if (pts.length < 2) return;
+    const n = pts.length;
+    let d = `M${toX(0, n).toFixed(1)} ${toY(pts[0].pct).toFixed(1)}`;
+    for (let i = 1; i < n; i++) d += ` L${toX(i, n).toFixed(1)} ${toY(pts[i].pct).toFixed(1)}`;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', color);
+    path.setAttribute('stroke-width', strokeWidth);
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('stroke-linecap', 'round');
+    svgEl.appendChild(path);
+  });
+
+  // Tooltip interaction
+  setupChartHover(svgEl, allSeries, toX, toY);
+
+  // Tiles
+  renderTiles(allSeries, portColor);
+}
+
+function setupChartHover(svgEl, allSeries, toX, toY) {
+  const wrap = document.getElementById('pvChartWrap');
+  const tooltip = document.getElementById('pvTooltip');
+  const crosshair = document.getElementById('pvCrosshair');
+  if (!tooltip || !crosshair) return;
+
+  const getNearest = (clientX) => {
+    const rect = wrap.getBoundingClientRect();
+    const relX = (clientX - rect.left) / rect.width;
+    const maxN = allSeries.reduce((a, s) => Math.max(a, s.pts.length), 0);
+    const idx = Math.round(relX * (maxN - 1));
+    return Math.max(0, Math.min(idx, maxN - 1));
+  };
+
+  const show = (clientX) => {
+    const rect = wrap.getBoundingClientRect();
+    const pxX = clientX - rect.left;
+    const relX = pxX / rect.width;
+    const maxN = allSeries.reduce((a, s) => Math.max(a, s.pts.length), 0);
+    const idx = Math.round(relX * (maxN - 1));
+    crosshair.style.display = 'block';
+    crosshair.style.left = pxX + 'px';
+    let html = '';
+    allSeries.forEach(({ key, pts, color }) => {
+      const i = Math.round(idx * (pts.length - 1) / Math.max(maxN - 1, 1));
+      const pt = pts[Math.min(i, pts.length - 1)];
+      if (!pt) return;
+      const label = key === 'port' ? 'Port' : key.toUpperCase();
+      const sign = pt.pct >= 0 ? '+' : '';
+      html += `<div><span style="color:${color};font-weight:600">${label}</span> ${sign}${pt.pct.toFixed(2)}%</div>`;
+    });
+    tooltip.style.display = 'block';
+    tooltip.innerHTML = html;
+  };
+  const hide = () => { tooltip.style.display = 'none'; crosshair.style.display = 'none'; };
+
+  wrap.onmousemove = e => show(e.clientX);
+  wrap.onmouseleave = hide;
+  wrap.ontouchmove = e => { e.preventDefault(); show(e.touches[0].clientX); };
+  wrap.ontouchend = hide;
+}
+
+function renderTiles(allSeries, portColor) {
+  const tilesEl = document.getElementById('pvTiles');
+  if (!tilesEl) return;
+  tilesEl.innerHTML = '';
+  const labels = { port: 'Portfolio', spy: 'S&P', qqq: 'NDX' };
+  const colors = { port: portColor, spy: '#3b82f6', qqq: '#ec4899' };
+  allSeries.forEach(({ key, pts }) => {
+    if (!pts.length) return;
+    const last = pts[pts.length - 1].pct;
+    const sign = last >= 0 ? '+' : '';
+    const col = last > 0 ? '#22c55e' : last < 0 ? '#ef4444' : '#94a3b8';
+    const tile = document.createElement('div');
+    tile.className = 'pv-tile';
+    tile.innerHTML = `<div class="pv-tile-label" style="color:${colors[key]}">${labels[key]}</div><div class="pv-tile-val" style="color:${col}">${sign}${last.toFixed(2)}%</div>`;
+    tilesEl.appendChild(tile);
+  });
+}
+
+function startKeyFor(range) {
+  const today = new Date();
+  if (range === 'YTD') return `${today.getFullYear()}-01-01`;
+  if (range === 'ALL') return '0000-01-01';
+  if (range === '1D') return '0000';
+  const days = { '1W': 7, '1M': 30, '3M': 90, '6M': 180, '1Y': 365 }[range] || 30;
+  const t = new Date(today.getTime() - days * 86400000);
+  return t.toISOString().slice(0, 10);
+}
+
+// Range buttons
+document.getElementById('pvRanges').addEventListener('click', e => {
+  const btn = e.target.closest('.pv-range');
+  if (btn) loadChart(btn.dataset.range);
+});
+
+// ── CHAT ───────────────────────────────────────────────────────────────────────
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function nowStr() { return new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}); }
+function fmtMs(ms) { return ms>=1000?(ms/1000).toFixed(2)+'s':ms+'ms'; }
+
+function appendMsg(from, html, ts, latMs) {
+  const msgs = document.getElementById('msgs');
+  const isUser = from === 'user';
+  const row = document.createElement('div');
+  row.className = 'msg-row ' + (isUser ? 'from-user' : 'from-franky');
+
+  // Hide avatar of previous consecutive Franky message
+  if (!isUser) {
+    const prev = [...msgs.querySelectorAll('.msg-row.from-franky')].pop();
+    if (prev) { const av = prev.querySelector('.mini-av'); if (av) av.classList.add('hidden'); }
+  }
+
+  const lat = (!isUser && latMs != null) ? ` · <span class="latency">${fmtMs(latMs)}</span>` : '';
+
+  if (isUser) {
+    row.innerHTML = `<div><div class="bubble">${html}</div><div class="msg-ts">${ts}</div></div>`;
+  } else {
+    row.innerHTML = `<div class="mini-av"><img src="https://dropoutapp.net/assets/franky-promo.png" onerror="this.style.display='none'" alt="F"></div><div><div class="bubble">${html}</div><div class="msg-ts">${ts}${lat}</div></div>`;
+  }
+  msgs.appendChild(row);
+  scroll();
+}
+
+const TYPING_LABELS = ['Thinking…','Checking the book…','On it…','Pulling the tape…'];
+let _typingTimer = null;
+
+function showTyping() {
+  const msgs = document.getElementById('msgs');
+  const r = document.createElement('div');
+  r.className = 'typing-row'; r.id = 'typing';
+  r.innerHTML = `<div class="mini-av"><img src="https://dropoutapp.net/assets/franky-promo.png" onerror="this.style.display='none'" alt="F"></div><div class="typing-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
+  msgs.appendChild(r); scroll();
+  let i = 0;
+  _typingTimer = setInterval(() => { i++; }, 2500);
+}
+function removeTyping() { clearInterval(_typingTimer); document.getElementById('typing')?.remove(); }
+function scroll() { const el = document.getElementById('msgs'); requestAnimationFrame(() => el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })); }
+
+async function sendMessage(text) {
+  text = (text ?? document.getElementById('inp').value).trim();
+  if (!text) return;
+  const ts = nowStr(), t0 = performance.now();
+  document.getElementById('inp').value = '';
+  autosize(document.getElementById('inp')); updateSend();
+  appendMsg('user', escHtml(text), ts);
+  document.getElementById('quickChips').style.display = 'none';
+  showTyping();
+
+  try {
+    const resp = await fetch(`${API}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, history: _chatHistory.slice(-14) }),
+    });
+    const data = await resp.json();
+    const latMs = Math.round(performance.now() - t0);
+    removeTyping();
+    const reply = data.reply || 'Lost the signal. Try again.';
+    _chatHistory.push({ role: 'user', content: text });
+    _chatHistory.push({ role: 'assistant', content: reply });
+    if (_chatHistory.length > 40) _chatHistory = _chatHistory.slice(-40);
+    const fmtd = reply
+      .replace(/`([^`]+)`/g, '<code style="font-family:var(--fm);font-size:12px;background:rgba(255,255,255,0.1);border-radius:3px;padding:1px 4px">$1</code>')
+      .replace(/```([\s\S]*?)```/g, '<div class="code-block">$1</div>');
+    appendMsg('franky', fmtd, nowStr(), latMs);
+  } catch(e) {
+    removeTyping();
+    appendMsg('franky', 'Lost the signal. Try again.', nowStr(), Math.round(performance.now() - t0));
+  }
+}
+
+function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+function updateSend() { document.getElementById('sendBtn').disabled = !document.getElementById('inp').value.trim(); }
+function autosize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 110) + 'px'; }
+function sendQuick(el) { sendMessage(el.textContent); }
+
+// ── INIT ───────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('tsWelcome').textContent = nowStr();
+  loadChart('YTD');
+});
+</script>
+</body>
+</html>

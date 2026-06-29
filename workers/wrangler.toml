@@ -8,8 +8,12 @@ crons = [
   "30 13 * * 1-5",  # 9:30 AM EDT — market open: B1, B6, B8
   "0 16 * * 1-5",   # 12:00 PM EDT — midday: B10
   "15 20 * * 1-5",  # 4:15 PM EDT — close: full rescore → signal_scores
-  "0 21 * * 1-5",   # 5:00 PM EDT — EOD: position sync
+  "0 21 * * 1-5",   # 5:00 PM EDT — EOD: position sync + portfolio snapshot
 ]
+
+[[routes]]
+pattern = "dropoutapp.net/api/*"
+zone_name = "dropoutapp.net"
 
 [vars]
 TURSO_URL = "https://dropout-fatdaddyg.aws-us-east-1.turso.io"
@@ -19,3 +23,4 @@ TURSO_URL = "https://dropout-fatdaddyg.aws-us-east-1.turso.io"
 #   PUBLIC_COM_TOKEN   Public.com API bearer token
 #   DISCORD_TOKEN      Captured Discord auth token (Bot or user token)
 #   STOCKTWITS_TOKEN   StockTwits __ssid session cookie value
+#   CLAUDE_API_KEY     Anthropic API key (for /api/chat)
